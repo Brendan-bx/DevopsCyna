@@ -6,6 +6,9 @@ jobs:
   publish-hello-docker-image:
     runs-on: ubuntu-latest
 
+    permissions:
+      packages: write
+      
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
