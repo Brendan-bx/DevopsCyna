@@ -3,26 +3,41 @@ volumes:
   prometheus-storage: {}
 
 services:
+  reverse-proxy:
+    image: traefik:v3.3
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker"
+    ports:
+      - "80:80"
+      - "8083:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
   grafana:
     image: grafana/grafana-oss
     container_name: grafana
     restart: unless-stopped
-    ports:
-      - '3000:3000'
     volumes:
       - grafana-storage:/var/lib/grafana
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
-    ports:
-      - "9090:9090"
     volumes:
       - ./prometheus.yml:/prometheus.yml
       - prometheus-storage:/prometheus
     restart: unless-stopped
     command:
       - "--config.file=/prometheus.yml"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.local`)"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
 
   node_exporter:
     image: quay.io/prometheus/node-exporter:v1.8.2
@@ -36,8 +51,6 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
     container_name: cadvisor
-    ports:
-      - 8080:8080
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
@@ -50,17 +63,19 @@ services:
     restart: unless-stopped
 
   web:
-    image: nginx
+    image: ghcr.io/brendan-bx/devopscyna:latest
     container_name: website
-    ports:
-      - "8081:80"
-    volumes:
-      - /usr/share/nginx/html/
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.web.rule=Host(`web.local`)"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
 
   blackbox-exporter:
     image: prom/blackbox-exporter
     container_name: blackbox-exporter
-    ports:
-      - "9115:9115"
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.blackbox.rule=Host(`blackbox.local`)"
+      - "traefik.http.services.blackbox.loadbalancer.server.port=9115"
